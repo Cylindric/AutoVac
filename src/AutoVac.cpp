@@ -57,6 +57,7 @@ State_type (*state_table[])() = {
 	instate_AutoCoolingDown};
 
 State_type _currentState;
+bool stateEnterRan = false;
 
 const float WH_PER_PULSE = 0.5; // The meter pulses 2,000 per kWh (0.5Wh/imp).
 const long MS_PER_HOUR = 3600000;
@@ -95,6 +96,7 @@ Led powerled = Led(strip, 0);
 Led overrideled = Led(strip, 1);
 PowerMeter meter = PowerMeter();
 
+
 void setup() {
 	// Set up the power toggle input
 	pinMode(ARMED_PIN, INPUT_PULLUP);
@@ -132,8 +134,10 @@ void loop() {
 	powerled.update();
 	meter.update();
 
+
 	// Show a blip if a pulse was detected
 	if (meter.pulseSeen()) {
+		Serial.print(_currentState); Serial.print(" Pulse "); Serial.print(meter.averageW()); Serial.print(" "); Serial.print(meter.totalWh()); Serial.println();
 		powerled.pulse(strip.Color(0, 0, 50), 50);
 	}
 
@@ -142,7 +146,7 @@ void loop() {
 	strip.show();
 }
 
-bool stateEnterRan = false;
+
 
 State_type changeState(State_type newState) {
 	if (newState != _currentState) {
@@ -152,21 +156,24 @@ State_type changeState(State_type newState) {
 	return newState;
 }
 
+
 State_type instate_ManualIdle() {
 	if (!stateEnterRan) {
-		Serial.println("Now Disarmed.");
+		Serial.println("Now Manual Idle.");
 		vacuum_turn_off();
-		powerled.set(strip.Color(POWERLED_DISARMED[0], POWERLED_DISARMED[1], POWERLED_DISARMED[2]));
+		powerled.set(POWERLED_DISARMED);
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = !powerToggle.read();
+	bool systemArmed = true;
 	if (systemArmed) {
+		Serial.println("No longer armed, switching to Manual Idle.");
 		return changeState(STATE_AUTO_IDLE);
 	}
 
 	bool overridePressed = overrideButton.fell();
 	if (overridePressed) {
+		Serial.println("Override pressed, switching to Manual Running.");
 		return changeState(STATE_MANUAL_RUNNING);
 	}
 
@@ -174,14 +181,22 @@ State_type instate_ManualIdle() {
 }
 
 State_type instate_ManualRunning() {
-	bool systemArmed = !powerToggle.read();
-	bool overridePressed = overrideButton.fell();
+	if (!stateEnterRan) {
+		Serial.println("Now Manual Running.");
+		vacuum_turn_on();
+		powerled.set(POWERLED_RUNNING);
+		stateEnterRan = true;
+	}
 
-	if (systemArmed) {
+	bool systemArmed = true;
+	if (!systemArmed) {
+		Serial.println("No longer armed, switching to Manual Idle.");
 		return changeState(STATE_AUTO_IDLE);
 	}
 
+	bool overridePressed = overrideButton.fell();
 	if (overridePressed) {
+		Serial.println("Override pressed, switching to Manual Idle.");
 		return changeState(STATE_MANUAL_IDLE);
 	}
 
@@ -191,24 +206,27 @@ State_type instate_ManualRunning() {
 State_type instate_AutoIdle() {
 
 	if (!stateEnterRan) {
-		Serial.println("Now idle.");
+		Serial.println("Now Idle.");
 		vacuum_turn_off();
 		powerled.set(strip.Color(POWERLED_ARMED[0], POWERLED_ARMED[1], POWERLED_ARMED[2]));
 		overrideled.set(strip.Color(BUTTONLED_AUTO[0], BUTTONLED_AUTO[1], BUTTONLED_AUTO[2]));
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = !powerToggle.read();
+	bool systemArmed = true;
 	if (!systemArmed) {
+		Serial.println("No longer armed, switching to Manual Idle.");
 		return changeState(STATE_MANUAL_IDLE);
 	}
 
 	bool overridePressed = overrideButton.fell();
 	if (overridePressed) {
+		Serial.println("Override pressed, switching to Auto Fored Running.");
 		return changeState(STATE_AUTO_FORCED_RUNNING);
 	}
 
 	if (meter.averageW() > MIN_WATTS) {
+		Serial.println("W above threshold, switching to Auto Running.");
 		return changeState(STATE_AUTO_RUNNING);
 	}
 
@@ -221,23 +239,24 @@ State_type instate_AutoRunning() {
 	if (!stateEnterRan) {
 		Serial.println("Now Running.");
 		vacuum_turn_on();
-		powerled.set(
-				strip.Color(POWERLED_RUNNING[0], POWERLED_RUNNING[1],
-						POWERLED_RUNNING[2]));
+		powerled.set(POWERLED_RUNNING);
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = !powerToggle.read();
+	bool systemArmed = true;
 	if (!systemArmed) {
+		Serial.println("No longer armed, switching to Manual Idle.");
 		return changeState(STATE_MANUAL_IDLE);
 	}
 
 	bool overridePressed = overrideButton.fell();
 	if (overridePressed) {
+		Serial.println("Override pressed, switching to Auto Fored Stopped.");
 		return changeState(STATE_AUTO_FORCED_STOPPED);
 	}
 
 	if (meter.averageW() <= MIN_WATTS + VAC_WATTS) {
+		Serial.print(meter.averageW()); Serial.print("W below threshold of "); Serial.print(MIN_WATTS + VAC_WATTS); Serial.println(", switching to Auto Cooling.");
 		return changeState(STATE_AUTO_COOLING_DOWN);
 	}
 
@@ -255,7 +274,7 @@ State_type instate_AutoForcedRunning() {
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = !powerToggle.read();
+	bool systemArmed = true;
 	if (!systemArmed) {
 		return changeState(STATE_MANUAL_IDLE);
 	}
@@ -279,7 +298,7 @@ State_type instate_AutoForcedStopped() {
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = !powerToggle.read();
+	bool systemArmed = true;
 	if (!systemArmed) {
 		return changeState(STATE_MANUAL_IDLE);
 	}
@@ -306,7 +325,7 @@ State_type instate_AutoCoolingDown() {
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = !powerToggle.read();
+	bool systemArmed = true;
 	if (!systemArmed) {
 		return changeState(STATE_MANUAL_IDLE);
 	}

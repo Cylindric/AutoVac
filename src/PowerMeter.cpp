@@ -63,7 +63,7 @@ void PowerMeter::update()
   if(millis() - lastStatsUpdate > AVG_FREQ)
   {
     long frameTime = millis() - lastStatsUpdate;
-  
+
     //Serial.print("totalWh:"); Serial.print(totalWh()); Serial.print("\t");
     //Serial.print("lastWh:"); Serial.print(lastUpdateWh); Serial.print("\t\t");
 
@@ -77,7 +77,7 @@ void PowerMeter::update()
     float averagePowerConsumption = (float)powerAverage.getAverage() / deltaHours;
     wattsAverage.addValue(averagePowerConsumption);
     //Serial.print("averagePowerConsumption:"); Serial.print(averagePowerConsumption, 4); Serial.print("\t");
-    //Serial.print("wattsAverage:"); 
+    //Serial.print("wattsAverage:");
     //Serial.print(0); Serial.print("\t");
     //Serial.print(wattsAverage.getAverage(), 4); Serial.print("\t");
     //Serial.println();
@@ -85,7 +85,7 @@ void PowerMeter::update()
     lastUpdateWh = totalWh();
     lastStatsUpdate = millis();
   }
-  
+
 }
 
 bool PowerMeter::pulseSeen()
@@ -96,17 +96,17 @@ bool PowerMeter::pulseSeen()
 
 float PowerMeter::averageWh()
 {
-  return powerAverage.getAverage();
+  return max(0, powerAverage.getAverage());
 }
 
 float PowerMeter::averageW()
 {
-  return wattsAverage.getAverage();
+  return max(0, wattsAverage.getAverage());
 }
 
 float PowerMeter::totalWh()
 {
-  return _totalWhSeen;
+  return max(0, _totalWhSeen);
 }
 
 
@@ -117,4 +117,3 @@ void PowerMeter::pulse()
   _lastPulseTime = millis();
   _pulseThisFrame = true;
 }
-
