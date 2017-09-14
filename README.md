@@ -1,2 +1,0 @@
-# AutoVac
-Automatic ShopVac Controller

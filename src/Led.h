@@ -15,7 +15,7 @@ class Led
     Adafruit_NeoPixel _strip;
     int _id;
     uint32_t _colour;
-    long _pulseExpires;
+    uint32_t _pulseExpires;
     bool _inPulse;
 };
 

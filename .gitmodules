@@ -1,6 +1,0 @@
-[submodule "Firmware/lib/Adafruit_NeoPixel"]
-	path = Firmware/lib/Adafruit_NeoPixel
-	url = https://github.com/adafruit/Adafruit_NeoPixel.git
-[submodule "Firmware/lib/Bounce2"]
-	path = Firmware/lib/Bounce2
-	url = https://github.com/thomasfredericks/Bounce2.git
