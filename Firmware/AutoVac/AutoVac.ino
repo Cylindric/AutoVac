@@ -20,10 +20,21 @@
 // Adafruit NeoPixel
 // Bounce2
 #include <Adafruit_NeoPixel.h>
+#include <Arduino.h>
 #include <Bounce2.h>
-#include "RunningAverage.h"
+#include <HardwareSerial.h>
+
 #include "Led.h"
 #include "PowerMeter.h"
+
+
+#define STATE_MANUAL_IDLE 0
+#define STATE_MANUAL_RUNNING 1
+#define STATE_AUTO_IDLE 2
+#define STATE_AUTO_RUNNING 3
+#define STATE_AUTO_FORCED_RUNNING 4
+#define STATE_AUTO_FORCED_STOPPED 5
+#define STATE_AUTO_COOLING_DOWN 6
 
 #define STATE_IDLE       0
 #define STATE_FORCED_ON  1
@@ -70,6 +81,8 @@ int targetState = STATE_DISARMED;
 // Per-frame loop variables
 long lastUpdateTime = 0;
 long frameTime = 0;
+long timeEnteredCooldown = 0;
+
 
 Bounce overrideButton = Bounce();
 Bounce powerToggle = Bounce();
@@ -125,20 +138,180 @@ void loop()
     powerled.pulse(strip.Color(0, 0, 50), 50);
   }
 
+  runstate();
+
   // See if we need to change state.
-  determine_next_state();
+  //determine_next_state();
 
   // Implement the current state.
-  apply_state();
+  //apply_state();
   strip.show();
+}
+
+
+void runstate() {
+	switch(currentState) {
+	case STATE_MANUAL_IDLE:
+		currentState = instate_ManualIdle();
+		break;
+
+	case STATE_MANUAL_RUNNING:
+		currentState = instate_ManualRunning();
+		break;
+
+	case STATE_AUTO_IDLE:
+		currentState = instate_AutoIdle();
+		break;
+
+	case STATE_AUTO_RUNNING:
+		currentState = instate_AutoRunning();
+		break;
+
+	case STATE_AUTO_FORCED_RUNNING:
+		currentState = instate_AutoForcedRunning();
+		break;
+
+	case STATE_AUTO_FORCED_STOPPED:
+		currentState = instate_AutoForcedStopped();
+		break;
+
+	case STATE_AUTO_COOLING_DOWN:
+		currentState = instate_AutoCoolingDown();
+		break;
+	};
+}
+
+
+int instate_ManualIdle() {
+  bool systemArmed = !powerToggle.read();
+  bool overridePressed = overrideButton.fell();
+
+  if(systemArmed) {
+	  return STATE_AUTO_IDLE;
+  }
+
+  if(overridePressed) {
+	  return STATE_MANUAL_RUNNING;
+  }
+
+  return STATE_MANUAL_IDLE;
+}
+
+
+int instate_ManualRunning() {
+  bool systemArmed = !powerToggle.read();
+  bool overridePressed = overrideButton.fell();
+
+  if(systemArmed){
+	  return STATE_AUTO_IDLE;
+  }
+
+  if(overridePressed) {
+	  return STATE_MANUAL_IDLE;
+  }
+
+  return STATE_MANUAL_RUNNING;
+}
+
+
+int instate_AutoIdle() {
+  bool systemArmed = !powerToggle.read();
+  if(!systemArmed){
+	  return STATE_MANUAL_IDLE;
+  }
+
+  bool overridePressed = overrideButton.fell();
+  if(overridePressed) {
+	  return STATE_AUTO_FORCED_RUNNING;
+  }
+
+  if(meter.averageW() > MIN_WATTS) {
+	  return STATE_AUTO_RUNNING;
+  }
+
+  return STATE_AUTO_IDLE;
+}
+
+
+int instate_AutoRunning() {
+  bool systemArmed = !powerToggle.read();
+  if(!systemArmed){
+	  return STATE_MANUAL_IDLE;
+  }
+
+  bool overridePressed = overrideButton.fell();
+  if(overridePressed) {
+	  return STATE_AUTO_FORCED_STOPPED;
+  }
+
+  if(meter.averageW() <= MIN_WATTS + VAC_WATTS) {
+	  return STATE_AUTO_COOLING_DOWN;
+  }
+
+  return STATE_AUTO_RUNNING;
+}
+
+
+int instate_AutoForcedRunning() {
+  bool systemArmed = !powerToggle.read();
+
+  if(!systemArmed){
+	  return STATE_MANUAL_IDLE;
+  }
+
+  bool overridePressed = overrideButton.fell();
+  if(overridePressed) {
+	  return STATE_AUTO_COOLING_DOWN;
+  }
+
+  return STATE_AUTO_FORCED_RUNNING;
+}
+
+
+
+int instate_AutoForcedStopped() {
+  bool systemArmed = !powerToggle.read();
+
+  if(!systemArmed){
+	  return STATE_MANUAL_IDLE;
+  }
+
+  bool overridePressed = overrideButton.fell();
+  if(overridePressed) {
+	  return STATE_MANUAL_IDLE;
+  }
+
+  if(meter.averageW() <= MIN_WATTS + VAC_WATTS) {
+	  return STATE_MANUAL_IDLE;
+  }
+
+  return STATE_AUTO_FORCED_STOPPED;
+}
+
+
+int instate_AutoCoolingDown() {
+  bool systemArmed = !powerToggle.read();
+  if(!systemArmed){
+	  return STATE_MANUAL_IDLE;
+  }
+
+  static long cooldown_entered = -1;
+  if(cooldown_entered == -1) {
+	  cooldown_entered = millis();
+  }
+
+  if(millis() - cooldown_entered <= COOLDOWN) {
+	  cooldown_entered = -1;
+	  return STATE_MANUAL_IDLE;
+  }
+
+  return STATE_AUTO_COOLING_DOWN;
 }
 
 
 void set_led_colour(int id, const int colour[]) {
 }
 
-
-long timeEnteredCooldown = 0;
 
 void determine_next_state()
 {
@@ -205,7 +378,6 @@ void determine_next_state()
     }
   }
 }
-
 
 
 void apply_state()
