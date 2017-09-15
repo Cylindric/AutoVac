@@ -1,20 +1,20 @@
 /*--------------------------------------------------------------------
- This file is part of the AutoVac Project.
+   This file is part of the AutoVac Project.
 
- AutoVac is free software: you can redistribute it and/or modify
- it under the terms of the GNU Lesser General Public License as
- published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.
+   AutoVac is free software: you can redistribute it and/or modify
+   it under the terms of the GNU Lesser General Public License as
+   published by the Free Software Foundation, either version 3 of
+   the License, or (at your option) any later version.
 
- AutoVac is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Lesser General Public License for more details.
+   AutoVac is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU Lesser General Public License for more details.
 
- You should have received a copy of the GNU Lesser General Public
- License along with AutoVac.  If not, see
- <http://www.gnu.org/licenses/>.
- --------------------------------------------------------------------*/
+   You should have received a copy of the GNU Lesser General Public
+   License along with AutoVac.  If not, see
+   <http://www.gnu.org/licenses/>.
+   --------------------------------------------------------------------*/
 
 // Requires the following libraries from the library manager:
 // Adafruit NeoPixel
@@ -54,7 +54,8 @@ State_type (*state_table[])() = {
 	instate_AutoRunning,
 	instate_AutoForcedRunning,
 	instate_AutoForcedStopped,
-	instate_AutoCoolingDown};
+	instate_AutoCoolingDown
+};
 
 State_type _currentState;
 bool stateEnterRan = false;
@@ -76,17 +77,17 @@ const int POWER_LED = 0;
 const int OVERRIDE_LED = 1;
 
 // Power LED Colours
-const int POWERLED_OFF[] = { 0, 0, 0 };
-const int POWERLED_ARMED[] = { 0, 100, 0 };
-const int POWERLED_DISARMED[] = { 0, 0, 0 };
-const int POWERLED_RUNNING[] = { 128, 0, 0 };
-const int POWERLED_PULSE[] = { 255, 255, 0 };
+const uint32_t POWERLED_OFF[]      = { 0, 0, 0 };
+const uint32_t POWERLED_ARMED[]    = { 0, 100, 0 };
+const uint32_t POWERLED_DISARMED[] = { 0, 0, 0 };
+const uint32_t POWERLED_RUNNING[]  = { 128, 0, 0 };
+const uint32_t POWERLED_PULSE[]    = { 255, 255, 0 };
 
 // Button LED Colours
-const int BUTTONLED_OFF[] = { 0, 0, 0 }; // Off
-const int BUTTONLED_AUTO[] = { 0, 0, 0 }; // Green
-const int BUTTONLED_FORCED_OFF[] = { 255, 100, 0 }; // Orange
-const int BUTTONLED_FORCED_ON[] = { 255, 0, 0 }; // Red
+const uint32_t BUTTONLED_OFF[]        = { 0, 0, 0 }; // Off
+const uint32_t BUTTONLED_AUTO[]       = { 0, 0, 0 }; // Green
+const uint32_t BUTTONLED_FORCED_OFF[] = { 255, 100, 0 }; // Orange
+const uint32_t BUTTONLED_FORCED_ON[]  = { 255, 0, 0 }; // Red
 
 Bounce overrideButton = Bounce();
 Bounce powerToggle = Bounce();
@@ -114,8 +115,8 @@ void setup() {
 	// Set up the LED output
 	strip.begin();
 	strip.setBrightness(64);
-	powerled.set(strip.Color(0, 0, 0));
-	overrideled.set(strip.Color(0, 0, 0));
+	powerled.set(POWERLED_OFF);
+	overrideled.set(BUTTONLED_OFF);
 	strip.show();
 
 	// Set up the relay output
@@ -128,16 +129,16 @@ void setup() {
 	Serial.println("Started.");
 }
 
+
 void loop() {
 	powerToggle.update();
 	overrideButton.update();
 	powerled.update();
 	meter.update();
 
-
 	// Show a blip if a pulse was detected
 	if (meter.pulseSeen()) {
-		Serial.print(_currentState); Serial.print(" Pulse "); Serial.print(meter.averageW()); Serial.print(" "); Serial.print(meter.totalWh()); Serial.println();
+		Serial.print(_currentState); Serial.print(" Pulse "); Serial.print(meter.averageW()); Serial.print("W "); Serial.print(meter.totalWh()); Serial.println("  Wh");
 		powerled.pulse(strip.Color(0, 0, 50), 50);
 	}
 
@@ -145,7 +146,6 @@ void loop() {
 
 	strip.show();
 }
-
 
 
 State_type changeState(State_type newState) {
@@ -165,7 +165,7 @@ State_type instate_ManualIdle() {
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = true;
+	bool systemArmed = !powerToggle.read();
 	if (systemArmed) {
 		Serial.println("No longer armed, switching to Manual Idle.");
 		return changeState(STATE_AUTO_IDLE);
@@ -180,6 +180,7 @@ State_type instate_ManualIdle() {
 	return STATE_MANUAL_IDLE;
 }
 
+
 State_type instate_ManualRunning() {
 	if (!stateEnterRan) {
 		Serial.println("Now Manual Running.");
@@ -188,7 +189,7 @@ State_type instate_ManualRunning() {
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = true;
+	bool systemArmed = !powerToggle.read();
 	if (!systemArmed) {
 		Serial.println("No longer armed, switching to Manual Idle.");
 		return changeState(STATE_AUTO_IDLE);
@@ -203,17 +204,17 @@ State_type instate_ManualRunning() {
 	return changeState(STATE_MANUAL_RUNNING);
 }
 
-State_type instate_AutoIdle() {
 
+State_type instate_AutoIdle() {
 	if (!stateEnterRan) {
 		Serial.println("Now Idle.");
 		vacuum_turn_off();
-		powerled.set(strip.Color(POWERLED_ARMED[0], POWERLED_ARMED[1], POWERLED_ARMED[2]));
-		overrideled.set(strip.Color(BUTTONLED_AUTO[0], BUTTONLED_AUTO[1], BUTTONLED_AUTO[2]));
+		powerled.set(POWERLED_ARMED);
+		overrideled.set(BUTTONLED_AUTO);
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = true;
+	bool systemArmed = !powerToggle.read();
 	if (!systemArmed) {
 		Serial.println("No longer armed, switching to Manual Idle.");
 		return changeState(STATE_MANUAL_IDLE);
@@ -243,7 +244,7 @@ State_type instate_AutoRunning() {
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = true;
+	bool systemArmed = !powerToggle.read();
 	if (!systemArmed) {
 		Serial.println("No longer armed, switching to Manual Idle.");
 		return changeState(STATE_MANUAL_IDLE);
@@ -265,16 +266,15 @@ State_type instate_AutoRunning() {
 
 
 State_type instate_AutoForcedRunning() {
-
 	if (!stateEnterRan) {
 		Serial.println("Now Overriding on.");
 		vacuum_turn_on();
-		powerled.set(strip.Color(POWERLED_RUNNING[0], POWERLED_RUNNING[1], POWERLED_RUNNING[2]));
-		overrideled.set(strip.Color(BUTTONLED_FORCED_ON[0], BUTTONLED_FORCED_ON[1], BUTTONLED_FORCED_ON[2]));
+		powerled.set(POWERLED_RUNNING);
+		overrideled.set(BUTTONLED_FORCED_ON);
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = true;
+	bool systemArmed = !powerToggle.read();
 	if (!systemArmed) {
 		return changeState(STATE_MANUAL_IDLE);
 	}
@@ -289,16 +289,15 @@ State_type instate_AutoForcedRunning() {
 
 
 State_type instate_AutoForcedStopped() {
-
 	if (!stateEnterRan) {
 		Serial.println("Now Overriding off.");
 		vacuum_turn_off();
-		powerled.set(strip.Color(POWERLED_ARMED[0], POWERLED_ARMED[1], POWERLED_ARMED[2]));
-		overrideled.set(strip.Color(BUTTONLED_FORCED_OFF[0], BUTTONLED_FORCED_OFF[1], BUTTONLED_FORCED_OFF[2]));
+		powerled.set(POWERLED_ARMED);
+		overrideled.set(BUTTONLED_FORCED_OFF);
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = true;
+	bool systemArmed = !powerToggle.read();
 	if (!systemArmed) {
 		return changeState(STATE_MANUAL_IDLE);
 	}
@@ -317,15 +316,14 @@ State_type instate_AutoForcedStopped() {
 
 
 State_type instate_AutoCoolingDown() {
-
 	if (!stateEnterRan) {
 		Serial.println("Now Cooling Down.");
-		powerled.set(strip.Color(POWERLED_ARMED[0], POWERLED_ARMED[1], POWERLED_ARMED[2]));
+		powerled.set(POWERLED_ARMED);
 		vacuum_turn_off();
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = true;
+	bool systemArmed = !powerToggle.read();
 	if (!systemArmed) {
 		return changeState(STATE_MANUAL_IDLE);
 	}

@@ -1,0 +1,44 @@
+{
+  "version": "v1",
+  "title": "YAKINDU",
+  "timestamp": 1505131156857,
+  "ttl": 10080,
+  "helpUrl": "https://aer.ctrlflow.com/yakindu-statecharts/help",
+  "feedbackUrl": "http://ctrlflow.com/automated-error-reporting",
+  "aboutUrl": "http://ctrlflow.com/automated-error-reporting",
+  "submitUrl": "https://aer.ctrlflow.com/yakindu-statecharts/community/new",
+  "maxReportSize": 524288,
+  "problemsUrl": "https://aer.ctrlflow.com/downloads/yakindu-statecharts/problems.zip",
+  "problemsTtl": 20160,
+  "connectTimeout": 5,
+  "socketTimeout": 10,
+  "acceptedProducts": [
+    "*"
+  ],
+  "acceptedPlugins": [
+    "com.yakindu.*",
+    "org.yakindu.*"
+  ],
+  "acceptedPackages": [
+    "*.*",
+    "ch.qos.*",
+    "com.sun.*",
+    "java.*",
+    "javafx.*",
+    "javax.*",
+    "org.apache.*",
+    "org.eclipse.*",
+    "org.osgi.*",
+    "org.slf4j.*",
+    "sun.*"
+  ],
+  "requiredPackages": [
+    "*.*"
+  ],
+  "acceptOtherPackages": true,
+  "acceptUiFreezes": true,
+  "ignoredStatuses": [
+    ":java.net.*:"
+  ],
+  "problemsZipLastDownloadTimestamp": 0
+}

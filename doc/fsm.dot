@@ -1,0 +1,30 @@
+digraph finite_state_machine {
+	forcelabels=true;
+
+	node [
+		shape = ellipse,
+		fontsize = 20
+	];
+
+	edge [
+		fontsize = 10,
+
+		// minlen = 0,
+	];
+
+	manual_idle:e -> manual_running:w [ label = "override.pressed" ];
+	manual_running:w -> manual_idle:e [ label = "override.pressed" ];
+
+	manual_idle -> auto_idle [ label = "mode == auto" ];
+	auto_idle -> manual_idle [ label = "mode == manual" ];
+
+	auto_idle -> auto_running [ label = "meter.goesHigh" ];
+	auto_idle -> auto_forced_running [ label = "override.pressed" ];
+
+	auto_running -> cooling_down [ label = "meter.goesLow" ];
+	auto_running -> auto_forced_stopped [ label = "override.pressed" ];
+
+	auto_forced_running -> cooling_down [ label = "override.pressed" ];
+
+	cooling_down -> manual_idle [ label = "after 5s" ];
+}
