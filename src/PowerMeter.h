@@ -18,6 +18,7 @@
 
 #ifndef PowerMeter_h
 #define PowerMeter_h
+#include <Bounce2.h>
 
 class PowerMeter
 {
@@ -29,14 +30,16 @@ class PowerMeter
     float totalWh();
     float averageWh();
     float averageW();
-    static void pulse();
+    void pulse();
 
   private:
-    static long _timeSinceLastPulse;
-    static long _lastPulseTime;
-    static bool _pulseThisFrame;
-    static float _totalWhSeen;
-    
+    long _timeSinceLastPulse;
+    long _lastPulseTime;
+    bool _pulseThisFrame;
+    float _totalWhSeen;
+    long _totalPulses;
+
+    Bounce _sensor;
     int _pin;
 };
 

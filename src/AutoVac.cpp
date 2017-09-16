@@ -27,6 +27,8 @@
 #include "Led.h"
 #include "PowerMeter.h"
 
+#define DEBUG_STATUS 1
+
 typedef enum {
 	STATE_MANUAL_IDLE = 0,
 	STATE_MANUAL_RUNNING,
@@ -63,7 +65,7 @@ bool stateEnterRan = false;
 const float WH_PER_PULSE = 0.5; // The meter pulses 2,000 per kWh (0.5Wh/imp).
 const long MS_PER_HOUR = 3600000;
 const int VAC_WATTS = 1500; // Vacuum Power. Ideally we'll learn this from some sort of calibration eventually.
-const int MIN_WATTS = 100; // The minimum trigger value. Ideally we'll learn this from some sort of calibration eventually.
+const int MIN_WATTS = 200; // The minimum trigger value. Ideally we'll learn this from some sort of calibration eventually.
 const int UPDATE_INTERVAL = 500; // How many millis between updates.
 const long COOLDOWN = 5000; // How many millis after an OFF before the vac can come on again
 
@@ -130,6 +132,12 @@ void setup() {
 }
 
 
+unsigned long timeSinceStatus = millis();
+
+bool SystemIsArmed() {
+	return !powerToggle.read();
+}
+
 void loop() {
 	powerToggle.update();
 	overrideButton.update();
@@ -138,9 +146,21 @@ void loop() {
 
 	// Show a blip if a pulse was detected
 	if (meter.pulseSeen()) {
-		Serial.print(_currentState); Serial.print(" Pulse "); Serial.print(meter.averageW()); Serial.print("W "); Serial.print(meter.totalWh()); Serial.println("  Wh");
+		// Serial.print(_currentState); Serial.print(" Pulse "); Serial.print(meter.averageW()); Serial.print("W "); Serial.print(meter.totalWh()); Serial.println("Wh");
 		powerled.pulse(strip.Color(0, 0, 50), 50);
 	}
+
+#ifdef DEBUG_STATUS
+	if(millis() -  timeSinceStatus > 1000) {
+		Serial.print(millis());
+		Serial.print(" STATUS\t"); Serial.print(_currentState);
+		Serial.print(" ARM:"); Serial.print(SystemIsArmed());
+		Serial.print(" W:"); Serial.print(meter.averageW());
+		Serial.print(" Wh:"); Serial.print(meter.totalWh());
+		Serial.println();
+		timeSinceStatus = millis();
+	}
+#endif
 
 	_currentState = state_table[_currentState]();
 
@@ -165,9 +185,8 @@ State_type instate_ManualIdle() {
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = !powerToggle.read();
-	if (systemArmed) {
-		Serial.println("No longer armed, switching to Manual Idle.");
+	if (SystemIsArmed()) {
+		Serial.println("System now armed, switching to Auto Idle.");
 		return changeState(STATE_AUTO_IDLE);
 	}
 
@@ -189,9 +208,9 @@ State_type instate_ManualRunning() {
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = !powerToggle.read();
-	if (!systemArmed) {
-		Serial.println("No longer armed, switching to Manual Idle.");
+	// bool systemArmed = !powerToggle.read();
+	if (SystemIsArmed()) {
+		Serial.println("No armed, switching to Auto Idle.");
 		return changeState(STATE_AUTO_IDLE);
 	}
 
@@ -214,15 +233,15 @@ State_type instate_AutoIdle() {
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = !powerToggle.read();
-	if (!systemArmed) {
+	// bool systemArmed = !powerToggle.read();
+	if (!SystemIsArmed()) {
 		Serial.println("No longer armed, switching to Manual Idle.");
 		return changeState(STATE_MANUAL_IDLE);
 	}
 
 	bool overridePressed = overrideButton.fell();
 	if (overridePressed) {
-		Serial.println("Override pressed, switching to Auto Fored Running.");
+		Serial.println("Override pressed, switching to Auto Forced Running.");
 		return changeState(STATE_AUTO_FORCED_RUNNING);
 	}
 
@@ -236,29 +255,31 @@ State_type instate_AutoIdle() {
 
 
 State_type instate_AutoRunning() {
-
+	static unsigned long timeEnteredState = millis();
 	if (!stateEnterRan) {
 		Serial.println("Now Running.");
 		vacuum_turn_on();
 		powerled.set(POWERLED_RUNNING);
 		stateEnterRan = true;
+		timeEnteredState = millis();
 	}
 
-	bool systemArmed = !powerToggle.read();
-	if (!systemArmed) {
+	if (!SystemIsArmed()) {
 		Serial.println("No longer armed, switching to Manual Idle.");
 		return changeState(STATE_MANUAL_IDLE);
 	}
 
 	bool overridePressed = overrideButton.fell();
 	if (overridePressed) {
-		Serial.println("Override pressed, switching to Auto Fored Stopped.");
+		Serial.println("Override pressed, switching to Auto Forced Stopped.");
 		return changeState(STATE_AUTO_FORCED_STOPPED);
 	}
 
-	if (meter.averageW() <= MIN_WATTS + VAC_WATTS) {
-		Serial.print(meter.averageW()); Serial.print("W below threshold of "); Serial.print(MIN_WATTS + VAC_WATTS); Serial.println(", switching to Auto Cooling.");
-		return changeState(STATE_AUTO_COOLING_DOWN);
+	if(millis() - timeEnteredState > COOLDOWN) {
+		if (meter.averageW() <= MIN_WATTS + VAC_WATTS) {
+			Serial.print(meter.averageW()); Serial.print("W below threshold of "); Serial.print(MIN_WATTS + VAC_WATTS); Serial.println(", switching to Auto Cooling.");
+			return changeState(STATE_AUTO_COOLING_DOWN);
+		}
 	}
 
 	return changeState(STATE_AUTO_RUNNING);
@@ -274,8 +295,8 @@ State_type instate_AutoForcedRunning() {
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = !powerToggle.read();
-	if (!systemArmed) {
+	// bool systemArmed = !powerToggle.read();
+	if (!SystemIsArmed()) {
 		return changeState(STATE_MANUAL_IDLE);
 	}
 
@@ -297,8 +318,7 @@ State_type instate_AutoForcedStopped() {
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = !powerToggle.read();
-	if (!systemArmed) {
+	if (!SystemIsArmed()) {
 		return changeState(STATE_MANUAL_IDLE);
 	}
 
@@ -323,19 +343,27 @@ State_type instate_AutoCoolingDown() {
 		stateEnterRan = true;
 	}
 
-	bool systemArmed = !powerToggle.read();
-	if (!systemArmed) {
+	if (!SystemIsArmed()) {
+		Serial.println("Abandoning cooldown due to disarming. Switching to manual.");
 		return changeState(STATE_MANUAL_IDLE);
 	}
 
 	static long cooldown_entered = -1;
+	static bool seenPowerDropped = false;
 	if (cooldown_entered == -1) {
 		cooldown_entered = millis();
+		seenPowerDropped = false;
+		Serial.print(millis()); Serial.print(" Cooldown entered."); Serial.println();
 	}
 
-	if (millis() - cooldown_entered <= COOLDOWN) {
+	if(meter.averageW() <= MIN_WATTS) {
+		seenPowerDropped = true;
+	}
+
+	if (seenPowerDropped && (millis() - cooldown_entered > COOLDOWN)) {
+		Serial.print(millis()); Serial.println(" Cooldown expired, switching to idle");
 		cooldown_entered = -1;
-		return changeState(STATE_MANUAL_IDLE);
+		return changeState(STATE_AUTO_IDLE);
 	}
 
 	return changeState(STATE_AUTO_COOLING_DOWN);
