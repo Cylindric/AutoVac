@@ -21,15 +21,15 @@
 #include "RunningAverage.h"
 #include <Bounce2.h>
 
-//#define DEBUG_POWERMETER 1
+#define DEBUG_POWERMETER 1
 
 #define WH_PER_PULSE 0.5  // The meter pulses 2,000 per kWh (0.5Wh/imp).
-#define AVG_FREQ     500  // ms between stats updates
+#define AVG_FREQ     250  // ms between stats updates
 #define AVG_WINDOW   5000 // Milliseconds of sliding average window.
 #define MS_PER_HOUR  3600000
 #define WATT_WINDOW  5000 // Milliseconds of sliding average window for the Watt counter
 
-RunningAverage powerAverage(AVG_WINDOW/AVG_FREQ);
+RunningAverage whPerTick(AVG_WINDOW/AVG_FREQ);
 RunningAverage wattsAverage(WATT_WINDOW/AVG_FREQ);
 
 
@@ -41,6 +41,8 @@ PowerMeter::PowerMeter()
   _totalWhSeen = 0;
   _totalPulses = 0;
   _pulseThisFrame = false;
+  whPerTick.fillValue(0, whPerTick.getSize());
+  wattsAverage.fillValue(0, wattsAverage.getSize());
 }
 
 
@@ -53,9 +55,8 @@ void PowerMeter::attach(int pin)
                 pinMode(_pin, INPUT_PULLUP);
                 _sensor.attach(_pin);
               	_sensor.interval(25);
-                // attachInterrupt(digitalPinToInterrupt(_pin), pulse, RISING);
         }
-        powerAverage.clear();
+        whPerTick.clear();
         wattsAverage.clear();
 }
 
@@ -78,25 +79,25 @@ void PowerMeter::update()
     #ifdef DEBUG_POWERMETER
     Serial.print("pulses:"); Serial.print(_totalPulses); Serial.print("\t");
     Serial.print("totalWh:"); Serial.print(totalWh()); Serial.print("\t");
-    Serial.print("lastWh:"); Serial.print(lastUpdateWh); Serial.print("\t\t");
+    Serial.print("lastWh:"); Serial.print(lastUpdateWh); Serial.print("\t");
     #endif
 
-    float whSinceLastUpdate = totalWh() - lastUpdateWh;
-    powerAverage.addValue(whSinceLastUpdate);
+    float whSinceLastTick = totalWh() - lastUpdateWh;
+    whPerTick.addValue(whSinceLastTick);
     #ifdef DEBUG_POWERMETER
-    Serial.print("whSinceLastUpdate:"); Serial.print(whSinceLastUpdate); Serial.print("\t");
-    Serial.print("powerAverage:"); Serial.print(powerAverage.getAverage(), 4); Serial.print("\t");
+    Serial.print("whSinceLastTick:"); Serial.print(whSinceLastTick); Serial.print("\t");
+    Serial.print("whPerTick.AVG:"); Serial.print(whPerTick.getAverage(), 4); Serial.print("\t");
     #endif
 
     float deltaHours = (float)frameTime / MS_PER_HOUR;
-    //float deltaHours =  (float)(powerAverage.getCount() * AVG_FREQ) / MS_PER_HOUR;
-    float averagePowerConsumption = (float)powerAverage.getAverage() / deltaHours;
-    wattsAverage.addValue(averagePowerConsumption);
+    float wPerTick = whSinceLastTick / deltaHours;
     #ifdef DEBUG_POWERMETER
-    Serial.print("averagePowerConsumption:"); Serial.print(averagePowerConsumption, 4); Serial.print("\t");
-    Serial.print("wattsAverage:");
-    Serial.print(0); Serial.print("\t");
-    Serial.print(wattsAverage.getAverage(), 4); Serial.print("\t");
+    Serial.print("wPerTick:"); Serial.print(wPerTick, 0); Serial.print("\t");
+    #endif
+    wattsAverage.addValue(wPerTick);
+
+    #ifdef DEBUG_POWERMETER
+    Serial.print("wPerTick.AVG:"); Serial.print(wattsAverage.getAverage(), 0); Serial.print("\t");
     Serial.println();
     #endif
 
@@ -120,7 +121,7 @@ bool PowerMeter::pulseSeen()
 
 float PowerMeter::averageWh()
 {
-        return max(0, powerAverage.getAverage());
+        return max(0, whPerTick.getAverage());
 }
 
 

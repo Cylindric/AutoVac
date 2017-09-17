@@ -27,7 +27,7 @@
 #include "Led.h"
 #include "PowerMeter.h"
 
-#define DEBUG_STATUS 1
+// #define DEBUG_STATUS 1
 
 typedef enum {
 	STATE_MANUAL_IDLE = 0,
@@ -65,7 +65,7 @@ bool stateEnterRan = false;
 const float WH_PER_PULSE = 0.5; // The meter pulses 2,000 per kWh (0.5Wh/imp).
 const long MS_PER_HOUR = 3600000;
 const int VAC_WATTS = 1500; // Vacuum Power. Ideally we'll learn this from some sort of calibration eventually.
-const int MIN_WATTS = 200; // The minimum trigger value. Ideally we'll learn this from some sort of calibration eventually.
+const int MIN_WATTS = 500; // The minimum trigger value. Ideally we'll learn this from some sort of calibration eventually.
 const int UPDATE_INTERVAL = 500; // How many millis between updates.
 const long COOLDOWN = 5000; // How many millis after an OFF before the vac can come on again
 
@@ -339,7 +339,8 @@ State_type instate_AutoCoolingDown() {
 	if (!stateEnterRan) {
 		Serial.println("Now Cooling Down.");
 		powerled.set(POWERLED_ARMED);
-		vacuum_turn_off();
+		overrideled.set(BUTTONLED_OFF);
+  	vacuum_turn_off();
 		stateEnterRan = true;
 	}
 
